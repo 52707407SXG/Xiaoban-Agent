@@ -78,7 +78,7 @@ xiaoban gateway      # Inicia el gateway de mensajería (Telegram, Discord, etc.
 xiaoban setup        # Ejecuta el asistente de configuración completo
 hermes claw migrate # Migra desde OpenClaw (si vienes de OpenClaw)
 xiaoban update       # Actualiza a la última versión
-hermes doctor       # Diagnostica cualquier problema
+xiaoban doctor      # Diagnostica cualquier problema
 ```
 
 📖 **[Documentación completa →](https://github.com/52707407SXG/Xiaoban-Agent/docs/)**

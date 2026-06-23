@@ -633,9 +633,9 @@ def _print_setup_summary(config: dict, hermes_home):
     print()
     print(color("🚀 Ready to go!", Colors.CYAN, Colors.BOLD))
     print()
-    print(f"   {color('hermes', Colors.GREEN)}              Start chatting")
+    print(f"   {color('xiaoban', Colors.GREEN)}             Start chatting")
     print(f"   {color('xiaoban gateway', Colors.GREEN)}      Start messaging gateway")
-    print(f"   {color('hermes doctor', Colors.GREEN)}       Check for issues")
+    print(f"   {color('xiaoban doctor', Colors.GREEN)}      Check for issues")
     print()
 
 

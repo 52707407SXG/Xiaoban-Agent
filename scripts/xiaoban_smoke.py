@@ -47,6 +47,8 @@ from xiaoban.connectors import (
     InMemoryDurableReceiveStore,
     NormalizedInboundEvent,
     build_connector_response,
+    build_web_desktop_pet_response,
+    normalize_web_desktop_pet_event,
 )
 
 
@@ -297,6 +299,42 @@ def main() -> None:
     assert "runtimeResult" not in production_response
     assert "envelope" not in production_response
     assert debug_response["runtimeResult"] == {"visible": True}
+
+    web_event = normalize_web_desktop_pet_event(
+        {
+            "channel": "web-desktop-pet",
+            "conversationId": "web-conv-1",
+            "messageId": "web-msg-1",
+            "clientTs": "2026-06-24T10:05:00+08:00",
+            "userId": "browser-forged-user",
+            "siteId": "browser-forged-site",
+            "workspaceId": "workspace-1",
+            "text": "小伴，解释一下这个引用资料",
+            "references": [{"referenceId": "ref-1", "kind": "help", "moduleId": "help-center"}],
+            "attachments": [{"fileId": "file-1", "mimeType": "text/plain", "parserStatus": "ready"}],
+            "pageContext": {"pathname": "/feature-store"},
+            "moduleContext": {"moduleId": "feature-store"},
+        },
+        trusted_user=owner,
+    )
+    assert web_event.connector == "web-desktop-pet"
+    assert web_event.channel_identity.channel_account_id == "site-1"
+    assert web_event.channel_identity.external_user_id == "52707407"
+    assert web_event.metadata["browserUserId"] == "browser-forged-user"
+    assert web_event.metadata["identitySource"] == "mystand-session"
+    assert web_event.metadata["references"][0]["referenceId"] == "ref-1"
+    assert web_event.attachments[0]["fileId"] == "file-1"
+    web_receive = durable_receive.accept(web_event)
+    web_response = build_web_desktop_pet_response(
+        web_receive,
+        conversation_id=web_event.conversation_id,
+        message_id=web_event.message_id,
+        status="waiting_confirmation",
+        tool_events=({"toolName": "event-center.create_event", "status": "waiting_confirmation"},),
+    )
+    assert web_response["conversationId"] == "web-conv-1"
+    assert web_response["status"] == "waiting_confirmation"
+    assert web_response["toolEvents"][0]["status"] == "waiting_confirmation"
 
     event_payload = {
         "siteId": "site-1",

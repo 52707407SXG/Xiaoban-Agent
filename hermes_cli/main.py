@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Xiaoban CLI - Main entry point.
 
@@ -2241,7 +2243,7 @@ def cmd_chat(args):
             for _ref in _retired_xai_refs:
                 sys.stderr.write(f"  \033[33m⚠\033[0m {format_issue(_ref)}\n")
             sys.stderr.write(f"  \033[2mMigration guide: {MIGRATION_GUIDE_URL}\033[0m\n")
-            sys.stderr.write("  \033[2mRun 'hermes doctor' for details.\033[0m\n\n")
+            sys.stderr.write("  \033[2mRun 'xiaoban doctor' for details.\033[0m\n\n")
     except Exception:
         pass
 
@@ -2906,7 +2908,7 @@ def select_provider_and_model(args=None):
         else:
             warning = (
                 f"Unknown provider '{effective_provider}'. Check 'xiaoban model' for "
-                "available providers, or run 'hermes doctor' to diagnose config "
+                "available providers, or run 'xiaoban doctor' to diagnose config "
                 "issues."
             )
             print(f"Warning: {warning} Falling back to auto provider detection.")

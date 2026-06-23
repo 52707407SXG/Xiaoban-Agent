@@ -61,6 +61,7 @@ Create `/etc/xiaoban-agent/xiaoban.env`:
 
 ```bash
 XIAOBAN_HOME=/var/lib/xiaoban-agent
+HERMES_HOME=/var/lib/xiaoban-agent
 XIAOBAN_LOG_DIR=/var/log/xiaoban-agent
 MYSTAND_XIAOBAN_CHANNEL_DEBUG=false
 MYSTAND_XIAOBAN_ALLOW_UNVERIFIED_TEST_MESSAGES=false
@@ -74,6 +75,10 @@ DEEPSEEK_API_KEY=
 MYSTAND_XIAOBAN_WECHAT_TOKEN=
 MYSTAND_XIAOBAN_FEISHU_VERIFICATION_TOKEN=
 ```
+
+During the transition period, set both `XIAOBAN_HOME` and `HERMES_HOME` to the
+same path. `XIAOBAN_HOME` is the operator-facing variable; `HERMES_HOME` is
+inherited runtime compatibility.
 
 ## No-Key Smoke
 
@@ -103,6 +108,15 @@ python scripts/xiaoban_server_smoke.py
 When the gateway is later enabled behind the My Stand backend proxy, the HTTP
 health endpoint must stay local-only or private-network-only until My Stand
 session authentication and durable stores are wired.
+
+The current service start command is:
+
+```bash
+python -m xiaoban.cli gateway run --replace --accept-hooks
+```
+
+Do not use `gateway --host ... --port ...`; the current runtime expects the
+`gateway run` subcommand for a foreground service process.
 
 ## systemd Example
 

@@ -76,7 +76,7 @@ TIPS = [
     "hermes -p work chat runs under a specific profile without changing your default.",
 
     # --- CLI Subcommands ---
-    "hermes doctor --fix diagnoses and auto-repairs config and dependency issues.",
+    "xiaoban doctor --fix diagnoses and auto-repairs config and dependency issues.",
     "hermes dump outputs a compact setup summary — great for bug reports.",
     "hermes config set KEY VALUE auto-routes secrets to .env and everything else to config.yaml.",
     "hermes config edit opens config.yaml in your default editor.",

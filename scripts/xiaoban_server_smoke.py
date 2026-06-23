@@ -10,8 +10,12 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
+import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -25,7 +29,10 @@ from xiaoban.webhook import verify_event_center_signature
 from xiaoban.webhook.event_center import canonical_json_bytes
 
 
-def _run(*cmd: str) -> str:
+def _run(*cmd: str, env: dict[str, str] | None = None) -> str:
+    merged_env = os.environ.copy()
+    if env:
+        merged_env.update(env)
     completed = subprocess.run(
         list(cmd),
         cwd=REPO_ROOT,
@@ -33,6 +40,7 @@ def _run(*cmd: str) -> str:
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        env=merged_env,
     )
     return completed.stdout.strip()
 
@@ -41,6 +49,17 @@ def _check_cli() -> None:
     expected = "Xiaoban-Agent v"
     assert expected in _run(sys.executable, "-m", "xiaoban.cli", "--version")
     assert expected in _run(sys.executable, "bin/xiaoban", "--version")
+    assert expected in _run("./bin/xiaoban", "--version")
+
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert 'xiaoban = "xiaoban.cli:main"' in pyproject
+
+    path_env = str(REPO_ROOT / "bin") + os.pathsep + os.environ.get("PATH", "")
+    assert expected in _run("xiaoban", "--version", env={"PATH": path_env})
+
+    installed = shutil.which("xiaoban")
+    if installed and str(Path(installed).resolve()).startswith(str(REPO_ROOT.resolve())):
+        assert expected in _run(installed, "--version")
 
 
 def _check_config_surface() -> None:
@@ -50,6 +69,41 @@ def _check_config_surface() -> None:
     assert "feishu: [xiaoban-feishu]" in config_text
     assert "telegram: [xiaoban-telegram]" not in config_text
     assert "legacy runtime compatibility HERMES_HOME" in config_text
+
+
+def _check_xiaoban_home_and_user_surfaces() -> None:
+    with tempfile.TemporaryDirectory(prefix="xiaoban-home-smoke-") as tmp:
+        home = Path(tmp) / "state"
+        doctor = _run("./bin/xiaoban", "doctor", env={"XIAOBAN_HOME": str(home)})
+        assert f"XIAOBAN_HOME: {home}" in doctor
+        assert "~/.hermes" not in doctor
+        assert "hermes doctor" not in doctor
+        assert "Installed entrypoint xiaoban" in doctor
+        assert "Default My Stand channels" in doctor
+
+    gateway_help = _run("./bin/xiaoban", "gateway", "--help")
+    assert "web-desktop-pet" in gateway_help
+    assert "weixin" in gateway_help
+    assert "feishu" in gateway_help
+    assert "Legacy runtime adapters" in gateway_help
+    assert "Telegram, Discord" not in gateway_help.split("Default My Stand channels:", 1)[-1].split("commands:", 1)[0]
+
+    gateway_run_help = _run("./bin/xiaoban", "gateway", "run", "--help")
+    assert "gateway run --replace --accept-hooks" in gateway_run_help
+    assert "--host" not in gateway_run_help
+    assert "--port" not in gateway_run_help
+
+
+def _check_systemd_execstart() -> None:
+    service = REPO_ROOT / "docs" / "systemd" / "xiaoban-agent.service.example"
+    text = service.read_text(encoding="utf-8")
+    match = re.search(r"^ExecStart=(.+)$", text, flags=re.MULTILINE)
+    assert match, "systemd ExecStart missing"
+    execstart = match.group(1)
+    assert "python -m xiaoban.cli gateway run --replace --accept-hooks" in execstart
+    assert " --host " not in execstart and " --port " not in execstart
+    assert "Environment=XIAOBAN_HOME=/var/lib/xiaoban-agent" in text
+    assert "Environment=HERMES_HOME=/var/lib/xiaoban-agent" in text
 
 
 def _check_mmcc_fixtures() -> None:
@@ -86,6 +140,11 @@ def _check_event_center_signature() -> None:
 
 
 def _check_dev_stores() -> None:
+    durable_source = (REPO_ROOT / "xiaoban" / "connectors" / "durable_receive.py").read_text(encoding="utf-8")
+    identity_source = (REPO_ROOT / "xiaoban" / "identity" / "store.py").read_text(encoding="utf-8")
+    assert "dev/smoke" in durable_source
+    assert "dev/smoke" in identity_source
+
     identity = InMemoryIdentityDirectory()
     user = MyStandUserIdentity(
         site_id="site-1",
@@ -123,6 +182,8 @@ def _check_dev_stores() -> None:
 def main() -> int:
     _check_cli()
     _check_config_surface()
+    _check_xiaoban_home_and_user_surfaces()
+    _check_systemd_execstart()
     _check_mmcc_fixtures()
     _check_event_center_signature()
     _check_dev_stores()

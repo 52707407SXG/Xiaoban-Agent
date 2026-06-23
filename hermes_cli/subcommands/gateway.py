@@ -39,7 +39,11 @@ def build_gateway_parser(
     gateway_parser = subparsers.add_parser(
         "gateway",
         help="Messaging gateway management",
-        description="Manage the messaging gateway (Telegram, Discord, WhatsApp, Weixin, and more)",
+        description=(
+            "Manage the Xiaoban My Stand gateway. Default channels are "
+            "web desktop pet, webhook, weixin, feishu, wecom, qqbot, and cli. "
+            "Legacy runtime adapters are opt-in only."
+        ),
     )
     gateway_subparsers = gateway_parser.add_subparsers(dest="gateway_command")
 

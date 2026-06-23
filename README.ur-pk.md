@@ -91,7 +91,7 @@ xiaoban gateway      # میسجنگ گیٹ وے شروع کریں (ٹیلی گر
 xiaoban setup        # مکمل سیٹ اپ وزرڈ چلائیں (یہ سب کچھ ایک ساتھ کنفیگر کر دے گا)
 hermes claw migrate # OpenClaw سے مائیگریٹ کریں (اگر آپ OpenClaw سے آ رہے ہیں)
 xiaoban update       # لیٹسٹ ورژن پر اپ ڈیٹ کریں
-hermes doctor       # کسی بھی مسئلے کی تشخیص کریں
+xiaoban doctor      # کسی بھی مسئلے کی تشخیص کریں
 ```
 
 </div>

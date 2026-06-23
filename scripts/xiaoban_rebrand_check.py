@@ -63,7 +63,10 @@ FORBIDDEN_PATTERNS = [
     ]
 ]
 
-HERMES_HOME_ALLOWED_PHRASE = "legacy runtime compatibility"
+HERMES_HOME_ALLOWED_PHRASES = (
+    "legacy runtime compatibility",
+    "inherited runtime compatibility",
+)
 
 
 def iter_files(path: Path):
@@ -84,9 +87,11 @@ def main() -> int:
             for pattern in FORBIDDEN_PATTERNS:
                 if pattern.search(text):
                     failures.append(f"{path.relative_to(REPO_ROOT)}: {pattern.pattern}")
-            if "HERMES_HOME" in text and HERMES_HOME_ALLOWED_PHRASE not in text:
+            if "HERMES_HOME" in text and not any(
+                phrase in text for phrase in HERMES_HOME_ALLOWED_PHRASES
+            ):
                 failures.append(
-                    f"{path.relative_to(REPO_ROOT)}: HERMES_HOME must be labeled as legacy runtime compatibility"
+                    f"{path.relative_to(REPO_ROOT)}: HERMES_HOME must be labeled as inherited runtime compatibility"
                 )
     if failures:
         print("xiaoban-rebrand-check failed")
