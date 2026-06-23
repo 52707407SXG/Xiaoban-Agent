@@ -36,8 +36,8 @@ _XIAOBAN_CORE_TOOLS = [
     # Read the desktop GUI's embedded terminal pane (gated on HERMES_DESKTOP
     # via check_fn in tools/read_terminal_tool.py — hidden outside the GUI).
     "read_terminal",
-    # File manipulation
-    "read_file", "write_file", "patch", "search_files",
+    # File manipulation and My Stand parsing
+    "read_file", "write_file", "patch", "search_files", "mystand_parse",
     # Vision + image generation
     "vision_analyze", "image_generate",
     # Skills
@@ -188,8 +188,8 @@ TOOLSETS = {
     
 
     "file": {
-        "description": "File manipulation tools: read, write, patch (with fuzzy matching), and search (content + files)",
-        "tools": ["read_file", "write_file", "patch", "search_files"],
+        "description": "File manipulation and My Stand parser tools: read, write, patch, search, and parse files or URLs",
+        "tools": ["read_file", "write_file", "patch", "search_files", "mystand_parse"],
         "includes": []
     },
     
@@ -394,8 +394,8 @@ TOOLSETS = {
             "web_search", "web_extract",
             # Terminal + process management
             "terminal", "process",
-            # File manipulation
-            "read_file", "write_file", "patch", "search_files",
+            # File manipulation and My Stand parsing
+            "read_file", "write_file", "patch", "search_files", "mystand_parse",
             # Vision + image generation
             "vision_analyze", "image_generate",
             # Skills

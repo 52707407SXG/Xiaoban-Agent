@@ -342,10 +342,12 @@ def check_systemd_timing_alignment(drain_timeout: float) -> Optional[Dict[str, A
 
     # Try to identify our unit name and ask systemctl for its config.
     unit_name: Optional[str] = None
+    cgroup_path = ""
     try:
         # /proc/self/cgroup gives us "0::/user.slice/.../hermes-gateway.service"
         with open("/proc/self/cgroup", encoding="utf-8") as fh:
             for line in fh:
+                cgroup_path = line.strip()
                 # systemd cgroup line ends with the unit name
                 if ".service" in line:
                     parts = line.strip().split("/")
@@ -361,10 +363,11 @@ def check_systemd_timing_alignment(drain_timeout: float) -> Optional[Dict[str, A
         return None
 
     # Query systemctl for TimeoutStopUSec.  Use --user OR system depending
-    # on which manager actually owns the unit.  Try user first since
-    # that's the common case for hermes.
+    # on which manager actually owns the unit.  Prefer the manager indicated
+    # by cgroup so a same-named user unit cannot shadow a system service.
     timeout_us: Optional[int] = None
-    for flag in (["--user"], []):
+    manager_flags = ([], ["--user"]) if "/system.slice/" in cgroup_path else (["--user"], [])
+    for flag in manager_flags:
         try:
             result = subprocess.run(
                 ["systemctl", *flag, "show", unit_name, "--property=TimeoutStopUSec"],
