@@ -29,24 +29,24 @@ iex (irm https://github.com/52707407SXG/Xiaoban-Agent/install.ps1)
 
 If you want to install & run Xiaoban Desktop after a command-line only install, simply run
 ```bash
-hermes desktop
+xiaoban desktop
 ```
 
 ### What the Installer Does
 
-The installer handles everything automatically — all dependencies (Python, Node.js, ripgrep, ffmpeg), the repo clone, virtual environment, global `hermes` command setup, and LLM provider configuration. By the end, you're ready to chat.
+The installer handles everything automatically — all dependencies (Python, Node.js, ripgrep, ffmpeg), the repo clone, virtual environment, global `xiaoban` command setup, and LLM provider configuration. By the end, you're ready to chat.
 
 #### Install Layout
 
 Where the installer puts things depends on whether you're installing as a normal user or as root:
 
-| Installer | Code lives at | `hermes` binary | Data directory |
+| Installer | Code lives at | `xiaoban` binary | Data directory |
 |---|---|---|---|
-| pip install | Python site-packages | `~/.local/bin/hermes` (console_scripts) | `~/.hermes/` |
-| Per-user (git installer) | `~/.hermes/xiaoban-agent/` | `~/.local/bin/hermes` (symlink) | `~/.hermes/` |
-| Root-mode (`sudo curl … \| sudo bash`) | `/usr/local/lib/xiaoban-agent/` | `/usr/local/bin/hermes` | `/root/.hermes/` (or `$HERMES_HOME`) |
+| pip install | Python site-packages | `~/.local/bin/xiaoban` (console_scripts) | `~/.xiaoban/` |
+| Per-user (git installer) | `~/.xiaoban/xiaoban-agent/` | `~/.local/bin/xiaoban` (symlink) | `~/.xiaoban/` |
+| Root-mode (`sudo curl … \| sudo bash`) | `/usr/local/lib/xiaoban-agent/` | `/usr/local/bin/xiaoban` | `/root/.xiaoban/` (or `$XIAOBAN_HOME`) |
 
-The root-mode **FHS layout** (`/usr/local/lib/…`, `/usr/local/bin/hermes`) matches where other system-wide developer tools land on Linux. It's useful for shared-machine deployments where one system install should serve every user. Per-user config (auth, skills, sessions) still lives under each user's `~/.hermes/` or explicit `HERMES_HOME`.
+The root-mode **FHS layout** (`/usr/local/lib/…`, `/usr/local/bin/xiaoban`) matches where other system-wide developer tools land on Linux. It's useful for shared-machine deployments where one system install should serve every user. Per-user config (auth, skills, sessions) still lives under each user's `~/.xiaoban/` or explicit `XIAOBAN_HOME`.
 
 ### After Installation
 
@@ -54,7 +54,7 @@ Reload your shell and start chatting:
 
 ```bash
 source ~/.bashrc   # or: source ~/.zshrc
-hermes             # Start chatting!
+xiaoban             # Start chatting!
 ```
 
 To reconfigure individual settings later, use the dedicated commands:
@@ -63,7 +63,7 @@ To reconfigure individual settings later, use the dedicated commands:
 xiaoban model          # Choose your LLM provider and model
 xiaoban tools          # Configure which tools are enabled
 xiaoban gateway setup  # Set up messaging platforms
-hermes config set     # Set individual config values
+xiaoban config set     # Set individual config values
 xiaoban setup          # Or run the full setup wizard to configure everything at once
 ```
 
@@ -107,7 +107,7 @@ If you want to clone the repo and install from source — for contributing, runn
 
 ## Non-Sudo / System Service User Installs
 
-Running Hermes as a dedicated unprivileged user (e.g. a `hermes` systemd service account, or any user without `sudo` access) is supported. The only thing on the install path that genuinely needs root is Playwright's `--with-deps` step, which `apt`-installs shared libraries (`libnss3`, `libxkbcommon`, etc.) used by Chromium. The installer detects whether sudo is available and gracefully degrades when it isn't — it will install the Chromium binary into the service user's own Playwright cache and print the exact command an administrator needs to run separately.
+Running Xiaoban-Agent as a dedicated unprivileged user (e.g. a `xiaoban` systemd service account, or any user without `sudo` access) is supported. The only thing on the install path that genuinely needs root is Playwright's `--with-deps` step, which `apt`-installs shared libraries (`libnss3`, `libxkbcommon`, etc.) used by Chromium. The installer detects whether sudo is available and gracefully degrades when it isn't — it will install the Chromium binary into the service user's own Playwright cache and print the exact command an administrator needs to run separately.
 
 **Recommended split (Debian/Ubuntu):**
 
@@ -127,16 +127,16 @@ Running Hermes as a dedicated unprivileged user (e.g. a `hermes` systemd service
    curl -fsSL https://github.com/52707407SXG/Xiaoban-Agent/install.sh | bash -s -- --skip-browser
    ```
 
-3. **Make `hermes` available to the service user's shells.** The installer writes the launcher to `~/.local/bin/hermes`. System service accounts often have a minimal PATH that doesn't include `~/.local/bin`. Either add it to the user's environment, or symlink the launcher into a system location:
+3. **Make `xiaoban` available to the service user's shells.** The installer writes the launcher to `~/.local/bin/xiaoban`. System service accounts often have a minimal PATH that doesn't include `~/.local/bin`. Either add it to the user's environment, or symlink the launcher into a system location:
    ```bash
    # Option A — add to the service user's profile
    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 
    # Option B — symlink system-wide (run as an admin)
-   sudo ln -s /home/hermes/.hermes/xiaoban-agent/venv/bin/hermes /usr/local/bin/hermes
+   sudo ln -s /home/xiaoban/.xiaoban/xiaoban-agent/venv/bin/xiaoban /usr/local/bin/xiaoban
    ```
 
-4. **Verify:** `hermes doctor` should now run cleanly. If you get `ModuleNotFoundError: No module named 'dotenv'`, you're invoking the repo source `hermes` file (`~/.hermes/xiaoban-agent/hermes`) with system Python instead of the venv launcher (`~/.hermes/xiaoban-agent/venv/bin/hermes`) — fix step 3.
+4. **Verify:** `xiaoban doctor` should now run cleanly. If you get `ModuleNotFoundError: No module named 'dotenv'`, you're invoking the repo source `xiaoban` file (`~/.xiaoban/xiaoban-agent/xiaoban`) with system Python instead of the venv launcher (`~/.xiaoban/xiaoban-agent/venv/bin/xiaoban`) — fix step 3.
 
 The same pattern works on Arch (the installer uses pacman with the same sudo-detection logic), Fedora/RHEL, and openSUSE — those distros don't support `--with-deps` at all, so an administrator always installs the system libraries separately. The relevant `dnf`/`zypper` commands are printed by the installer.
 
@@ -146,12 +146,12 @@ The same pattern works on Arch (the installer uses pacman with the same sudo-det
 
 | Problem | Solution |
 |---------|----------|
-| `hermes: command not found` | Reload your shell (`source ~/.bashrc`) or check PATH |
-| `API key not set` | Run `xiaoban model` to configure your provider, or `hermes config set OPENROUTER_API_KEY your_key` |
-| Missing config after update | Run `hermes config check` then `hermes config migrate` |
+| `xiaoban: command not found` | Reload your shell (`source ~/.bashrc`) or check PATH |
+| `API key not set` | Run `xiaoban model` to configure your provider, or `xiaoban config set OPENROUTER_API_KEY your_key` |
+| Missing config after update | Run `xiaoban config check` then `xiaoban config migrate` |
 
-For more diagnostics, run `hermes doctor` — it will tell you exactly what's missing and how to fix it.
+For more diagnostics, run `xiaoban doctor` — it will tell you exactly what's missing and how to fix it.
 
 ## Install method auto-detection
 
-Hermes auto-detects whether it was installed via `pip`, the git installer, Homebrew, or NixOS, and `xiaoban update` prints the matching update command for that path. There's no env var to set — the detection is based on the install layout (Python site-packages, `~/.hermes/xiaoban-agent/`, Homebrew prefix, or Nix store path). `hermes doctor` also surfaces the detected method under its environment summary.
+Xiaoban-Agent auto-detects whether it was installed via `pip`, the git installer, Homebrew, or NixOS, and `xiaoban update` prints the matching update command for that path. There's no env var to set — the detection is based on the install layout (Python site-packages, `~/.xiaoban/xiaoban-agent/`, Homebrew prefix, or Nix store path). `xiaoban doctor` also surfaces the detected method under its environment summary.

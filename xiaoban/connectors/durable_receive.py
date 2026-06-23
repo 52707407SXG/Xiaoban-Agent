@@ -8,12 +8,29 @@ public traffic is allowed.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Protocol
 
 from .events import DeliveryKey, DurableReceiveResult, NormalizedInboundEvent
 
 
+class DurableReceiveStore(Protocol):
+    """Production replaceable receive de-duplication contract."""
+
+    def accept(self, event: NormalizedInboundEvent) -> DurableReceiveResult:
+        """Record or reject one normalized inbound event."""
+
+    def has_seen(self, key: DeliveryKey) -> bool:
+        """Return whether the stable delivery key was already accepted."""
+
+
 @dataclass
 class InMemoryDurableReceiveStore:
+    """Volatile dev/smoke store.
+
+    This class loses state on process restart. It is safe for local smoke tests
+    only; production must provide SQLite or My Stand host persistence.
+    """
+
     seen: set[str] = field(default_factory=set)
 
     def accept(self, event: NormalizedInboundEvent) -> DurableReceiveResult:
@@ -26,4 +43,3 @@ class InMemoryDurableReceiveStore:
 
     def has_seen(self, key: DeliveryKey) -> bool:
         return key.stable_key in self.seen
-

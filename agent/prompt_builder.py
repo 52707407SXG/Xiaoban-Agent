@@ -1707,7 +1707,7 @@ def _truncate_content(
 
 
 def load_soul_md(context_length: Optional[int] = None) -> Optional[str]:
-    """Load SOUL.md from HERMES_HOME and return its content, or None.
+    """Load SOUL.md from HERMES_HOME legacy runtime compatibility path.
 
     Used as the agent identity (slot #1 in the system prompt).  When this
     returns content, ``build_context_files_prompt`` should be called with
@@ -1717,7 +1717,7 @@ def load_soul_md(context_length: Optional[int] = None) -> Optional[str]:
         from hermes_cli.config import ensure_hermes_home
         ensure_hermes_home()
     except Exception as e:
-        logger.debug("Could not ensure HERMES_HOME before loading SOUL.md: %s", e)
+        logger.debug("Could not ensure HERMES_HOME legacy runtime compatibility before loading SOUL.md: %s", e)
 
     soul_path = get_hermes_home() / "SOUL.md"
     if not soul_path.exists():
@@ -1847,7 +1847,8 @@ def build_context_files_prompt(
       3. CLAUDE.md / claude.md   (cwd only)
       4. .cursorrules / .cursor/rules/*.mdc  (cwd only)
 
-    SOUL.md from HERMES_HOME is independent and always included when present.
+    SOUL.md from HERMES_HOME legacy runtime compatibility is independent and
+    always included when present.
 
     Each context source is capped before injection. The cap defaults to the
     model's context window (scaled — see ``_dynamic_context_file_max_chars``)
@@ -1873,7 +1874,7 @@ def build_context_files_prompt(
     if project_context:
         sections.append(project_context)
 
-    # SOUL.md from HERMES_HOME only — skip when already loaded as identity
+    # SOUL.md from HERMES_HOME legacy runtime compatibility only — skip when already loaded as identity
     if not skip_soul:
         soul_content = load_soul_md(context_length)
         if soul_content:

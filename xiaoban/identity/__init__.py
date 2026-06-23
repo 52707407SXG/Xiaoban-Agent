@@ -3,10 +3,11 @@
 from .models import ChannelIdentity, MemoryScope, MyStandUserIdentity
 from .person_graph import InMemoryPersonGraph, PersonGraphProvider, PersonProfile
 from .policy import can_use_channel
-from .store import InMemoryIdentityDirectory
+from .store import IdentityStore, InMemoryIdentityDirectory
 
 __all__ = [
     "ChannelIdentity",
+    "IdentityStore",
     "InMemoryIdentityDirectory",
     "MemoryScope",
     "MyStandUserIdentity",

@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "displayName": "作品加工",
   "owner": "official",
+  "status": "planned",
   "category": "content",
   "capabilities": {
     "provides": ["works.read", "works.generate", "works.publish_draft"],
@@ -42,45 +43,13 @@
     "subscribes": ["file.asset.created"]
   },
   "agent": {
-    "tools": [
-      {
-        "toolName": "read_project",
-        "description": "读取作品加工项目的授权摘要和当前状态。",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "projectId": {"type": "string"}
-          },
-          "required": ["projectId"]
-        },
-        "outputSchema": {"type": "object"},
-        "requiredCapability": "works.read",
-        "idempotency": "none",
-        "sideEffect": "read"
-      },
-      {
-        "toolName": "generate_xiaohongshu_post",
-        "description": "根据授权素材和用户要求生成小红书图文草稿。",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "projectId": {"type": "string"},
-            "brief": {"type": "string"},
-            "style": {"type": "string"}
-          },
-          "required": ["projectId", "brief"]
-        },
-        "outputSchema": {"type": "object"},
-        "requiredCapability": "works.generate",
-        "idempotency": "required",
-        "sideEffect": "write"
-      }
-    ],
+    "tools": [],
     "contextProviders": [
       {
         "providerId": "current_project_summary",
         "description": "当前作品加工项目的用途、素材、约束和输出状态摘要。",
-        "requiredCapability": "works.read"
+        "requiredCapability": "works.read",
+        "dataScopes": ["works_projects"]
       }
     ]
   },
@@ -89,4 +58,3 @@
     "requiresManualApproval": false
   }
 }
-

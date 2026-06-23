@@ -9,7 +9,7 @@ MMCC_CONTRACT_VERSION = "mystand.module-capability.v0.1"
 
 SideEffect = Literal["read", "write", "external"]
 Idempotency = Literal["required", "recommended", "none"]
-Scope = Literal["self", "team", "company", "public"]
+Scope = Literal["self", "team", "company", "site", "public"]
 
 
 @dataclass(frozen=True)
@@ -38,6 +38,7 @@ class MMCCTool:
     side_effect: SideEffect
     output_schema: dict[str, Any] | None = None
     idempotency: Idempotency = "none"
+    data_scopes: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "MMCCTool":
@@ -49,6 +50,7 @@ class MMCCTool:
             required_capability=str(raw.get("requiredCapability", "")).strip(),
             idempotency=raw.get("idempotency", "none"),
             side_effect=raw.get("sideEffect", "read"),
+            data_scopes=tuple(str(scope) for scope in raw.get("dataScopes", ()) or ()),
         )
 
     @property
@@ -61,6 +63,7 @@ class MMCCContextProvider:
     provider_id: str
     description: str
     required_capability: str
+    data_scopes: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "MMCCContextProvider":
@@ -68,6 +71,7 @@ class MMCCContextProvider:
             provider_id=str(raw.get("providerId", "")).strip(),
             description=str(raw.get("description", "")).strip(),
             required_capability=str(raw.get("requiredCapability", "")).strip(),
+            data_scopes=tuple(str(scope) for scope in raw.get("dataScopes", ()) or ()),
         )
 
 
@@ -78,8 +82,10 @@ class MMCCManifest:
     version: str
     display_name: str
     owner: str
+    status: str = "installed"
     package_name: str | None = None
     category: str | None = None
+    surfaces: dict[str, Any] = field(default_factory=dict)
     capabilities_provides: tuple[str, ...] = ()
     capabilities_requires: tuple[str, ...] = ()
     permissions: tuple[MMCCPermission, ...] = ()
@@ -88,27 +94,33 @@ class MMCCManifest:
     events_subscribes: tuple[str, ...] = ()
     tools: tuple[MMCCTool, ...] = ()
     context_providers: tuple[MMCCContextProvider, ...] = ()
+    connectors: tuple[dict[str, Any], ...] = ()
     migrations: dict[str, Any] = field(default_factory=dict)
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "MMCCManifest":
+        source = raw.get("mmcc") if isinstance(raw.get("mmcc"), dict) else raw
         capabilities = raw.get("capabilities") or {}
-        events = raw.get("events") or {}
-        agent = raw.get("agent") or {}
+        if source is not raw:
+            capabilities = source.get("capabilities") or {}
+        events = source.get("events") or {}
+        agent = source.get("agent") or {}
 
         return cls(
-            contract_version=str(raw.get("contractVersion", "")).strip(),
-            module_id=str(raw.get("moduleId", "")).strip(),
-            package_name=raw.get("packageName"),
-            version=str(raw.get("version", "")).strip(),
-            display_name=str(raw.get("displayName", "")).strip(),
-            owner=str(raw.get("owner", "")).strip(),
-            category=raw.get("category"),
+            contract_version=str(source.get("contractVersion", "")).strip(),
+            module_id=str(source.get("moduleId", "")).strip(),
+            package_name=source.get("packageName"),
+            version=str(source.get("version", "")).strip(),
+            display_name=str(source.get("displayName", "") or raw.get("displayName", "")).strip(),
+            owner=str(source.get("owner", "")).strip(),
+            status=str(source.get("status", "installed")).strip() or "installed",
+            category=source.get("category"),
+            surfaces=dict(source.get("surfaces") or {}),
             capabilities_provides=tuple(str(item) for item in capabilities.get("provides", ()) or ()),
             capabilities_requires=tuple(str(item) for item in capabilities.get("requires", ()) or ()),
-            permissions=tuple(MMCCPermission.from_dict(item) for item in raw.get("permissions", ()) or ()),
-            data_scopes=tuple(dict(item) for item in raw.get("dataScopes", ()) or ()),
+            permissions=tuple(MMCCPermission.from_dict(item) for item in source.get("permissions", ()) or ()),
+            data_scopes=tuple(dict(item) for item in source.get("dataScopes", ()) or ()),
             events_emits=tuple(str(item) for item in events.get("emits", ()) or ()),
             events_subscribes=tuple(str(item) for item in events.get("subscribes", ()) or ()),
             tools=tuple(MMCCTool.from_dict(item) for item in agent.get("tools", ()) or ()),
@@ -116,7 +128,8 @@ class MMCCManifest:
                 MMCCContextProvider.from_dict(item)
                 for item in agent.get("contextProviders", ()) or ()
             ),
-            migrations=dict(raw.get("migrations") or {}),
+            connectors=tuple(dict(item) for item in source.get("connectors", ()) or ()),
+            migrations=dict(source.get("migrations") or {}),
             raw=dict(raw),
         )
 
@@ -128,4 +141,3 @@ class MMCCManifest:
             if permission.capability == capability:
                 return permission
         return None
-

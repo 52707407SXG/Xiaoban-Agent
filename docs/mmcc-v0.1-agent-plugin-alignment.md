@@ -55,7 +55,8 @@ Every module should gradually provide:
 
 ## ToolRegistry Contract
 
-Only tools declared in `manifest.agent.tools` are registered.
+Only tools declared in `manifest.agent.tools` are registered. Xiaoban-Agent is
+an MMCC consumer; My Stand Core owns module discovery and manifest resolution.
 
 Tool names must be:
 
@@ -63,7 +64,7 @@ Tool names must be:
 moduleId.toolName
 ```
 
-Examples:
+Future examples:
 
 ```txt
 event-center.create_event
@@ -155,6 +156,12 @@ The first Xiaoban layer currently includes:
 - fixture manifests for help center, event center, and works processing
 - smoke coverage in `scripts/xiaoban_smoke.py`
 
+The current seed fixtures intentionally keep `agent.tools` as empty arrays.
+They validate the contract shape, permissions, dataScopes, and contextProviders,
+but they do not enable runtime auto-discovery of module tools. The first real
+tool experiment should be separately approved and should start with a low-risk
+read-only capability.
+
 ## Interface Gaps Needed From My Stand Core
 
 The Agent side expects My Stand Core to provide or confirm:
@@ -171,4 +178,3 @@ The Agent side expects My Stand Core to provide or confirm:
 
 Until those are provided by the host, Xiaoban should keep using fixtures and
 dry-run gateway handlers for local validation.
-

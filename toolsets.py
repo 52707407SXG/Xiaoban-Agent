@@ -568,9 +568,9 @@ TOOLSETS = {
     },
 
     "xiaoban-gateway": {
-        "description": "Gateway toolset - union of all messaging platform tools",
+        "description": "My Stand default gateway toolset - CLI/Web/Webhook/Weixin/Feishu/WeCom/QQ only; legacy platforms are opt-in",
         "tools": [],
-        "includes": ["xiaoban-telegram", "xiaoban-discord", "xiaoban-whatsapp", "xiaoban-slack", "xiaoban-signal", "xiaoban-bluebubbles", "xiaoban-homeassistant", "xiaoban-email", "xiaoban-sms", "xiaoban-mattermost", "xiaoban-matrix", "xiaoban-dingtalk", "xiaoban-feishu", "xiaoban-wecom", "xiaoban-wecom-callback", "xiaoban-weixin", "xiaoban-qqbot", "xiaoban-webhook", "xiaoban-yuanbao"]
+        "includes": ["xiaoban-feishu", "xiaoban-wecom", "xiaoban-wecom-callback", "xiaoban-weixin", "xiaoban-qqbot", "xiaoban-webhook"]
     }
 }
 

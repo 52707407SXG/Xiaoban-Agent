@@ -19,11 +19,13 @@ def main() -> int:
     python = sys.executable
     run([python, "scripts/xiaoban_rebrand_check.py"])
     run([python, "scripts/xiaoban_smoke.py"])
+    run([python, "scripts/xiaoban_server_smoke.py"])
     run([python, "-m", "xiaoban.cli", "--version"])
+    run([python, "bin/xiaoban", "--version"])
+    run(["./bin/xiaoban", "--version"])
     print("xiaoban-validate ok")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

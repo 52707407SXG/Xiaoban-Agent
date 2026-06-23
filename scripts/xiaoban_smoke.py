@@ -137,12 +137,13 @@ def main() -> None:
     }
     loaded = [load_manifest(path) for path in fixtures]
     registered_names = {tool.name for tool in list_registered_tools(loaded)}
-    assert "help-center.search" in registered_names
-    assert "event-center.create_event" in registered_names
-    assert "works-processing.generate_xiaohongshu_post" in registered_names
+    assert registered_names == set()
+    assert sum(len(manifest.tools) for manifest in loaded) == 0
     assert [m.module_id for m in filter_enabled_manifests(loaded, {"help-center"})] == [
         "help-center"
     ]
+    wrapped_manifest = MMCCManifest.from_dict({"displayName": "外层模块", "mmcc": loaded[0].raw})
+    assert wrapped_manifest.module_id == loaded[0].module_id
 
     class MiniRegistry:
         def __init__(self) -> None:
@@ -163,7 +164,7 @@ def main() -> None:
             site_id="site-1",
             user_id="52707407",
             role="owner",
-            scopes=frozenset({"self", "team", "company", "public"}),
+            scopes=frozenset({"self", "team", "company", "site", "public"}),
             capabilities=frozenset(
                 {
                     "help.search",
@@ -185,10 +186,10 @@ def main() -> None:
 
     registered = register_mmcc_tools(
         mini_registry,
-        loaded,
+        [manifest],
         principal_resolver=principal_resolver,
         gateway_call=gateway_call,
-        enabled_module_ids={"event-center", "help-center", "works-processing"},
+        enabled_module_ids={"event-center"},
     )
     assert "event-center.create_event" in registered
     result = mini_registry.handlers["event-center.create_event"]["handler"](

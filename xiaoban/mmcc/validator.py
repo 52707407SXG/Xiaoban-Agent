@@ -11,9 +11,10 @@ _ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 _TOOL_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _CAPABILITY_RE = re.compile(r"^[a-z][a-z0-9-]*(\.[a-z][a-z0-9_-]*)+$")
 _VALID_OWNERS = {"core", "official", "community", "private"}
+_VALID_STATUS = {"core", "installed", "available", "planned", "disabled"}
 _VALID_SIDE_EFFECTS = {"read", "write", "external"}
 _VALID_IDEMPOTENCY = {"required", "recommended", "none"}
-_VALID_SCOPES = {"self", "team", "company", "public"}
+_VALID_SCOPES = {"self", "team", "company", "site", "public"}
 
 
 @dataclass(frozen=True)
@@ -43,9 +44,16 @@ def validate_manifest(manifest: MMCCManifest) -> MMCCManifest:
         errors.append("displayName is required")
     if manifest.owner not in _VALID_OWNERS:
         errors.append("owner must be one of core, official, community, private")
+    if manifest.status not in _VALID_STATUS:
+        errors.append("status must be one of core, installed, available, planned, disabled")
 
     provided = set(manifest.capabilities_provides)
     permission_caps = {permission.capability for permission in manifest.permissions}
+    data_scope_names = {
+        str(scope.get("namespace", "")).strip()
+        for scope in manifest.data_scopes
+        if str(scope.get("namespace", "")).strip()
+    }
 
     for capability in provided | permission_caps | set(manifest.capabilities_requires):
         if not _CAPABILITY_RE.match(capability):
@@ -79,6 +87,9 @@ def validate_manifest(manifest: MMCCManifest) -> MMCCManifest:
             errors.append(f"tool {tool.tool_name} idempotency is invalid: {tool.idempotency}")
         if tool.side_effect in {"write", "external"} and tool.idempotency == "none":
             errors.append(f"tool {tool.tool_name} with sideEffect={tool.side_effect} must declare idempotency")
+        unknown_data_scopes = set(tool.data_scopes) - data_scope_names
+        if unknown_data_scopes:
+            errors.append(f"tool {tool.tool_name} references unknown dataScopes: {sorted(unknown_data_scopes)}")
 
     seen_providers: set[str] = set()
     for provider in manifest.context_providers:
@@ -96,8 +107,13 @@ def validate_manifest(manifest: MMCCManifest) -> MMCCManifest:
                 f"context provider {provider.provider_id} requiredCapability is not declared: "
                 f"{provider.required_capability}"
             )
+        unknown_data_scopes = set(provider.data_scopes) - data_scope_names
+        if unknown_data_scopes:
+            errors.append(
+                f"context provider {provider.provider_id} references unknown dataScopes: "
+                f"{sorted(unknown_data_scopes)}"
+            )
 
     if errors:
         raise MMCCValidationError(tuple(errors))
     return manifest
-

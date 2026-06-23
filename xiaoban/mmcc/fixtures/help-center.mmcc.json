@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "displayName": "帮助中心",
   "owner": "core",
+  "status": "installed",
   "category": "knowledge",
   "capabilities": {
     "provides": ["help.search", "help.read"],
@@ -36,44 +37,13 @@
     "subscribes": []
   },
   "agent": {
-    "tools": [
-      {
-        "toolName": "search",
-        "description": "搜索 My Stand 帮助中心文档，返回和用户问题相关的条目摘要。",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "query": {"type": "string"},
-            "limit": {"type": "integer", "minimum": 1, "maximum": 10}
-          },
-          "required": ["query"]
-        },
-        "outputSchema": {"type": "object"},
-        "requiredCapability": "help.search",
-        "idempotency": "none",
-        "sideEffect": "read"
-      },
-      {
-        "toolName": "read_article",
-        "description": "读取用户有权限查看的帮助中心文章摘要。",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "documentId": {"type": "string"}
-          },
-          "required": ["documentId"]
-        },
-        "outputSchema": {"type": "object"},
-        "requiredCapability": "help.read",
-        "idempotency": "none",
-        "sideEffect": "read"
-      }
-    ],
+    "tools": [],
     "contextProviders": [
       {
         "providerId": "current_page_help",
         "description": "当前页面或模块相关的帮助中心摘要。",
-        "requiredCapability": "help.read"
+        "requiredCapability": "help.read",
+        "dataScopes": ["help_documents"]
       }
     ]
   },
@@ -82,4 +52,3 @@
     "requiresManualApproval": false
   }
 }
-

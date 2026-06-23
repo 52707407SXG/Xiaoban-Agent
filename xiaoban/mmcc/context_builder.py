@@ -74,6 +74,7 @@ def build_mmcc_context_index(
                 "source": item.source,
                 "description": item.provider.description,
                 "requiredCapability": item.provider.required_capability,
+                "dataScopes": item.provider.data_scopes,
                 "permissionRoles": permission.roles if permission else (),
                 "permissionScopes": permission.scopes if permission else (),
                 "generatedAt": item.generated_at,

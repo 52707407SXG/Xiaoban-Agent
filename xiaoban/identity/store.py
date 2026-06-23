@@ -3,12 +3,30 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Protocol
 
 from .models import ChannelIdentity, MemoryScope, MyStandUserIdentity
 
 
+class IdentityStore(Protocol):
+    """Production replaceable My Stand identity binding contract."""
+
+    def bind_channel(self, site_id: str, user_id: str, channel_identity: ChannelIdentity) -> None:
+        """Bind one external channel identity to a trusted My Stand user."""
+
+    def resolve_channel(self, channel_identity: ChannelIdentity) -> MyStandUserIdentity | None:
+        """Resolve a normalized connector identity to a My Stand user."""
+
+
 @dataclass
 class InMemoryIdentityDirectory:
+    """Volatile dev/smoke identity directory.
+
+    This class is not a production identity authority. Production must resolve
+    users and channel bindings from My Stand server session/host APIs or a
+    durable store.
+    """
+
     users: dict[tuple[str, str], MyStandUserIdentity] = field(default_factory=dict)
     channel_map: dict[str, tuple[str, str]] = field(default_factory=dict)
 
@@ -31,4 +49,3 @@ class InMemoryIdentityDirectory:
 
     def site_memory_scope(self, site_id: str) -> MemoryScope:
         return MemoryScope(site_id=site_id)
-

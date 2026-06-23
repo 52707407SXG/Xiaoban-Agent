@@ -195,9 +195,9 @@ terminal:
   cwd: "."  # For local backend: "." = current directory. Ignored for remote backends unless a backend documents otherwise.
   timeout: 180
   # HOME policy for tool subprocesses:
-  #   auto    - default: host uses your real HOME; containers use HERMES_HOME/home
+  #   auto    - default: host uses your real HOME; containers use the legacy runtime compatibility HERMES_HOME/home
   #   real    - force your real OS-user HOME
-  #   profile - force HERMES_HOME/home for strict per-profile CLI config isolation
+  #   profile - force the legacy runtime compatibility HERMES_HOME/home for strict per-profile CLI config isolation
   home_mode: "auto"
   docker_mount_cwd_to_workspace: false  # SECURITY: off by default. Opt in to mount the launch cwd into Docker /workspace.
   lifetime_seconds: 300
@@ -673,53 +673,56 @@ agent:
 # Platform Toolsets (per-platform tool configuration)
 # =============================================================================
 # Override which toolsets are available on each platform.
-# If a platform isn't listed here, its built-in default is used.
+# Xiaoban defaults are intentionally My Stand focused. Other Hermes-runtime
+# platform adapters may remain in the codebase, but they are opt-in and are
+# not part of the default My Stand deployment surface.
 #
 # You can use EITHER:
-#   - A preset like "xiaoban-cli" or "xiaoban-telegram" (curated tool set)
+#   - A preset like "xiaoban-cli" or "xiaoban-feishu" (curated tool set)
 #   - A list of individual toolsets to compose your own (see list below)
 #
-# Supported platform keys: cli, telegram, discord, whatsapp, slack, qqbot, teams, google_chat
+# Default My Stand platform keys: cli, web, webhook, weixin, feishu, wecom, qqbot
 #
 # Examples:
 #
 #   # Use presets (same as defaults):
 #   platform_toolsets:
 #     cli: [xiaoban-cli]
-#     telegram: [xiaoban-telegram]
+#     feishu: [xiaoban-feishu]
 #
-#   # Custom: give Telegram only web + terminal + file + planning:
+#   # Custom: give Feishu only web + file + planning:
 #   platform_toolsets:
-#     telegram: [web, terminal, file, todo]
+#     feishu: [web, file, todo]
 #
 #   # Custom: CLI without browser or image gen:
 #   platform_toolsets:
 #     cli: [web, terminal, file, skills, todo, tts, cronjob]
 #
-#   # Restrictive: Discord gets read-only tools only:
+#   # Restrictive: web desktop pet gets read-only tools only:
 #   platform_toolsets:
-#     discord: [web, vision, skills, todo]
+#     web: [web, vision, skills, todo]
 #
 # If not set, defaults are:
-#   cli:           xiaoban-cli            (everything + cronjob management)
-#   telegram:      xiaoban-telegram       (terminal, file, web, vision, image, tts, browser, skills, todo, cronjob, messaging)
-#   discord:       xiaoban-discord        (same as telegram)
-#   whatsapp:      xiaoban-whatsapp       (same as telegram)
-#   slack:         xiaoban-slack          (same as telegram)
-#   signal:        xiaoban-signal         (same as telegram)
-#   homeassistant: xiaoban-homeassistant  (same as telegram)
-#   qqbot:            xiaoban-qqbot            (same as telegram)
+#   cli:           xiaoban-cli       (full local operator surface)
+#   web:           xiaoban-webhook   (desktop pet connector contract)
+#   webhook:       xiaoban-webhook   (My Stand Event Center / internal webhook)
+#   weixin:        xiaoban-weixin    (WeChat official account / service account)
+#   feishu:        xiaoban-feishu    (Feishu bot / event subscription)
+#   wecom:         xiaoban-wecom     (Enterprise WeChat)
+#   qqbot:         xiaoban-qqbot     (QQ bot)
+#
+# Opt-in legacy runtime adapters such as Telegram, Discord, Slack, WhatsApp,
+# Signal, Matrix, HomeAssistant and Email are not enabled by default for
+# Xiaoban-Agent. Add them explicitly only after a My Stand deployment review.
 #
 platform_toolsets:
   cli: [xiaoban-cli]
-  telegram: [xiaoban-telegram]
-  discord: [xiaoban-discord]
-  whatsapp: [xiaoban-whatsapp]
-  slack: [xiaoban-slack]
-  signal: [xiaoban-signal]
-  homeassistant: [xiaoban-homeassistant]
+  web: [xiaoban-webhook]
+  webhook: [xiaoban-webhook]
+  weixin: [xiaoban-weixin]
+  feishu: [xiaoban-feishu]
+  wecom: [xiaoban-wecom]
   qqbot: [xiaoban-qqbot]
-  yuanbao: [xiaoban-yuanbao]
 
 # =============================================================================
 # Gateway Platform Settings
@@ -1196,7 +1199,7 @@ display:
 # Update Behavior
 # =============================================================================
 updates:
-  # Create a full HERMES_HOME zip before every `xiaoban update`.
+  # Create a full legacy runtime compatibility HERMES_HOME zip before every `xiaoban update`.
   # Backups land in ~/.xiaoban/backups/ and can be restored with `xiaoban import`.
   # Off by default because large homes can add minutes to every update.
   pre_update_backup: false

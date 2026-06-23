@@ -17,6 +17,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SURFACE_PATHS = [
     "README.md",
     "README.zh-CN.md",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
     ".env.example",
     "cli-config.yaml.example",
     "pyproject.toml",
@@ -24,6 +27,13 @@ SURFACE_PATHS = [
     "package-lock.json",
     "setup-xiaoban.sh",
     "bin/xiaoban",
+    "docs/server-install.md",
+    "docs/production-readiness.md",
+    "docs/release-checklist.md",
+    "docs/systemd",
+    "website/docs/index.mdx",
+    "website/docs/getting-started/quickstart.md",
+    "website/docs/getting-started/installation.md",
     "xiaoban",
     "agent/prompt_builder.py",
     "toolsets.py",
@@ -37,6 +47,8 @@ FORBIDDEN_PATTERNS = [
         r"Hermes CLI",
         r"You are Hermes",
         r"hermes-agent",
+        r"Hermes auto-inject",
+        r"send and receive emails as Hermes",
         r"hermes-cli",
         r"hermes-feishu",
         r"hermes-weixin",
@@ -50,6 +62,8 @@ FORBIDDEN_PATTERNS = [
         r"hermes update",
     ]
 ]
+
+HERMES_HOME_ALLOWED_PHRASE = "legacy runtime compatibility"
 
 
 def iter_files(path: Path):
@@ -70,6 +84,10 @@ def main() -> int:
             for pattern in FORBIDDEN_PATTERNS:
                 if pattern.search(text):
                     failures.append(f"{path.relative_to(REPO_ROOT)}: {pattern.pattern}")
+            if "HERMES_HOME" in text and HERMES_HOME_ALLOWED_PHRASE not in text:
+                failures.append(
+                    f"{path.relative_to(REPO_ROOT)}: HERMES_HOME must be labeled as legacy runtime compatibility"
+                )
     if failures:
         print("xiaoban-rebrand-check failed")
         for failure in failures:

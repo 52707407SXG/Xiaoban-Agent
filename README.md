@@ -35,19 +35,29 @@ Xiaoban-Agent（站小伴 / 小伴）是 My Stand 原生服务端 Agent。
 ## 本地验证
 
 ```bash
+python3 scripts/xiaoban_validate.py
 python3 scripts/xiaoban_smoke.py
+python3 scripts/xiaoban_server_smoke.py
+python3 -m xiaoban.cli --version
+python3 bin/xiaoban --version
+./bin/xiaoban --version
 ```
 
 预期输出：
 
 ```txt
 xiaoban-smoke ok
+xiaoban-server-smoke ok
 ```
 
 完整测试环境准备好后，再运行：
 
 ```bash
-scripts/run_tests.sh tests/xiaoban
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e .
+pip install -r requirements-dev.txt
+pytest tests/xiaoban
 ```
 
 ## 关键边界
@@ -58,6 +68,19 @@ scripts/run_tests.sh tests/xiaoban
 - 不把 API key、token、secret 写进提示词、日志或 Git。
 - 未授权用户即使知道 `moduleId.toolName` 也不能调用模块工具。
 - 写操作必须有稳定 `message_id` / `idempotencyKey`，避免重试重复执行。
+- 当前 MMCC seed fixtures 只保留接口、权限、dataScope 和 contextProvider；
+  `agent.tools` 先保持空数组，未获批准前不自动开放模块工具。
+- `InMemoryDurableReceiveStore` 和 `InMemoryIdentityDirectory` 只用于 smoke/dev，
+  生产必须换 SQLite 或 My Stand 后端持久层。
+
+## 服务器安装文档
+
+- `docs/server-install.md`
+- `docs/production-readiness.md`
+- `docs/release-checklist.md`
+- `docs/store-contract.md`
+- `docs/connectors/web-desktop-pet-contract.md`
+- `docs/connectors/cross-channel-sync.md`
 
 ## 运行底座
 

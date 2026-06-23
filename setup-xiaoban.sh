@@ -399,8 +399,9 @@ fi
 # Seed bundled skills into ~/.xiaoban/skills/
 # ============================================================================
 
-HERMES_SKILLS_DIR="${HERMES_HOME:-$HOME/.xiaoban}/skills"
-mkdir -p "$HERMES_SKILLS_DIR"
+# HERMES_HOME is accepted only as legacy runtime compatibility for older installs.
+XIAOBAN_SKILLS_DIR="${XIAOBAN_HOME:-${HERMES_HOME:-$HOME/.xiaoban}}/skills"
+mkdir -p "$XIAOBAN_SKILLS_DIR"
 
 echo ""
 echo "Syncing bundled skills to ~/.xiaoban/skills/ ..."
@@ -409,7 +410,7 @@ if "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/tools/skills_sync.py" 2>/dev/null;
 else
     # Fallback: copy if sync script fails (missing deps, etc.)
     if [ -d "$SCRIPT_DIR/skills" ]; then
-        cp -rn "$SCRIPT_DIR/skills/"* "$HERMES_SKILLS_DIR/" 2>/dev/null || true
+        cp -rn "$SCRIPT_DIR/skills/"* "$XIAOBAN_SKILLS_DIR/" 2>/dev/null || true
         echo -e "${GREEN}✓${NC} Skills copied"
     fi
 fi
