@@ -2,8 +2,10 @@
 
 from types import SimpleNamespace
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
+from datetime import datetime
 
-from agent.system_prompt import build_system_prompt_parts
+from agent.system_prompt import build_system_prompt_parts, _build_temporal_context_block
 
 
 def _make_agent(**overrides):
@@ -55,6 +57,21 @@ class TestContextFileCwd:
     def test_configured_dir_when_terminal_cwd_set(self, monkeypatch, tmp_path):
         monkeypatch.setenv("TERMINAL_CWD", str(tmp_path))
         assert _captured_context_cwd(_make_agent()) == tmp_path
+
+
+class TestTemporalContextBlock:
+    def test_uses_user_local_time_and_raw_schedule_guidance(self):
+        block = _build_temporal_context_block(
+            datetime(2026, 6, 24, 22, 10, tzinfo=ZoneInfo("Asia/Shanghai"))
+        )
+
+        assert "Current user default city/timezone: 成都/北京时间" in block
+        assert "Current user local time: 2026-06-24 22:10:00 CST+0800" in block
+        assert "Today window: 2026-06-24 00:00:00 CST+0800 to 2026-06-25 00:00:00 CST+0800" in block
+        assert "Tonight window: 2026-06-24 18:00:00 CST+0800 to 2026-06-25 12:00:00 CST+0800" in block
+        assert "今天, 最新, 当下, 现在, 最近, 后面, 接下来, 下一场, 今晚" in block
+        assert "use raw source rows" in block
+        assert "ET/EDT/EST/PT/CT/MT/BST/UTC/local/venue-local" in block
 
 
 def _stable_prompt(agent):

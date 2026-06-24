@@ -11,7 +11,7 @@ import json
 import os
 import asyncio
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 from tests.tools.conftest import register_all_web_providers
 
@@ -225,3 +225,37 @@ class TestWebExtractTavily:
             assert len(result["results"]) == 1
             assert result["results"][0]["url"] == "https://example.com"
 
+    def test_extract_preserves_raw_content_for_schedule_pages(self):
+        large_prefix = "\n".join(f"generic preview line {i}" for i in range(2500))
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "results": [
+                {
+                    "url": "https://www.espn.com/soccer/story/world-cup-schedule",
+                    "raw_content": (
+                        f"{large_prefix}\n"
+                        "Wednesday, June 24\n"
+                        "Group B: Switzerland vs. Canada, 3 p.m. ET\n"
+                        "Group C: Scotland vs. Brazil, 6 p.m. ET\n"
+                    ),
+                    "title": "2026 FIFA World Cup match schedule",
+                }
+            ]
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("tools.web_tools._get_backend", return_value="tavily"), \
+             patch.dict(os.environ, {"TAVILY_API_KEY": "tvly-test"}), \
+             patch("tools.web_tools.httpx.post", return_value=mock_response), \
+             patch("tools.web_tools.check_auxiliary_model", return_value=True), \
+             patch("tools.web_tools.process_content_with_llm", new_callable=AsyncMock) as mock_process:
+            from tools.web_tools import web_extract_tool
+            result = json.loads(asyncio.get_event_loop().run_until_complete(
+                web_extract_tool(["https://www.espn.com/soccer/story/world-cup-schedule"], use_llm_processing=True)
+            ))
+
+            assert result["results"][0]["content"].count("3 p.m. ET") == 1
+            assert result["results"][0]["content"].count("6 p.m. ET") == 1
+            assert "generic preview line 1" not in result["results"][0]["content"]
+            assert len(result["results"][0]["content"]) < 2_000
+            mock_process.assert_not_called()

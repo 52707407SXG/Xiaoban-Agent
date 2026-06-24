@@ -746,6 +746,94 @@ def clean_base64_images(text: str) -> str:
     return cleaned_text
 
 
+_PRECISION_WEB_TERMS_RE = re.compile(
+    r"\b("
+    r"schedule|fixtures?|kick-?off|match\s+schedule|calendar|timetable|"
+    r"scores?|standings|odds|prices?|stocks?|weather|flights?|trains?|"
+    r"events?|deadlines?|releases?|versions?"
+    r")\b|赛程|比赛|开球|时间表|日程|比分|赛果|积分|赔率|价格|股价|天气|航班|列车|截止|发布|版本",
+    re.IGNORECASE,
+)
+_PRECISION_TIME_RE = re.compile(
+    r"\b("
+    r"\d{1,2}:\d{2}|"
+    r"\d{1,2}\s*(?:a\.?m\.?|p\.?m\.?)|"
+    r"\d{4}[-/]\d{1,2}[-/]\d{1,2}|"
+    r"Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
+    r"Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|"
+    r"ET|EDT|EST|CT|CDT|CST|MT|MDT|MST|PT|PDT|PST|UTC|GMT|BST|local\s+time"
+    r")\b|北京时间|美东时间|当地时间|凌晨|上午|下午|晚上",
+    re.IGNORECASE,
+)
+
+
+def _should_preserve_raw_web_content(url: str = "", title: str = "", content: str = "") -> bool:
+    """Return True for pages where LLM summarization may corrupt critical facts.
+
+    Schedules, prices, scores and other time-sensitive pages often contain dense
+    tables. A compression model can accidentally rewrite a kickoff time or
+    timezone. For these pages the downstream agent should see raw extracted
+    text, even if it is longer.
+    """
+    text = str(content or "")
+    content_sample = text[:20_000] + "\n" + text[-20_000:]
+    haystack = "\n".join([str(url or ""), str(title or ""), content_sample])
+    return bool(_PRECISION_WEB_TERMS_RE.search(haystack) and _PRECISION_TIME_RE.search(haystack))
+
+
+def _precision_raw_excerpt(content: str, max_chars: int = 30_000) -> str:
+    """Return a compact raw excerpt for precision pages without rewriting facts."""
+    text = str(content or "")
+    if len(text) <= max_chars:
+        return text
+
+    lines = text.splitlines()
+    kept: List[str] = []
+    recent_headings: List[str] = []
+    seen = set()
+
+    def add(line: str) -> None:
+        stripped = line.strip()
+        if not stripped or stripped in seen:
+            return
+        seen.add(stripped)
+        kept.append(stripped)
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        is_heading = (
+            stripped.startswith("#")
+            or re.search(
+                r"\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|"
+                r"January|February|March|April|May|June|July|August|September|"
+                r"October|November|December)\b|星期|周[一二三四五六日天]|"
+                r"\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}月\d{1,2}日",
+                stripped,
+                re.IGNORECASE,
+            )
+        )
+        if is_heading:
+            recent_headings.append(stripped)
+            recent_headings = recent_headings[-4:]
+        if _PRECISION_TIME_RE.search(stripped):
+            for heading in recent_headings:
+                add(heading)
+            add(stripped)
+        if sum(len(item) + 1 for item in kept) >= max_chars:
+            break
+
+    excerpt = "\n".join(kept).strip()
+    if not excerpt:
+        excerpt = text[:max_chars].strip()
+    return (
+        "[Precision raw excerpt: exact source rows/headings preserved; surrounding prose omitted. "
+        "Use the row dates and row timezones, not page-level summaries.]\n"
+        f"{excerpt}"
+    )
+
+
 # ─── Exa / Parallel inline helpers — moved into plugins ──────────────────────
 # After PR #25182, the exa client + search/extract and parallel client +
 # search/extract helpers all live in their respective plugins:
@@ -1072,6 +1160,19 @@ async def web_extract_tool(
                     return result, None, "no_content"
                 
                 original_size = len(raw_content)
+                if _should_preserve_raw_web_content(url, title, raw_content):
+                    preserved_content = _precision_raw_excerpt(raw_content)
+                    metrics = {
+                        "url": url,
+                        "original_size": original_size,
+                        "processed_size": len(preserved_content),
+                        "compression_ratio": len(preserved_content) / original_size if original_size > 0 else 1.0,
+                        "model_used": None,
+                        "reason": "precision_raw_preserved",
+                    }
+                    result['content'] = preserved_content
+                    result['raw_content'] = raw_content
+                    return result, metrics, "raw_precision"
                 
                 # Process content with LLM
                 processed = await process_content_with_llm(
@@ -1126,6 +1227,10 @@ async def web_extract_tool(
                 elif status == "too_short":
                     debug_call_data["compression_metrics"].append(metrics)
                     logger.info("%s (no processing - content too short)", url)
+                elif status == "raw_precision":
+                    debug_call_data["compression_metrics"].append(metrics)
+                    debug_call_data["processing_applied"].append("precision_raw_preserved")
+                    logger.info("%s (raw preserved - precision/time-sensitive content)", url)
                 else:
                     logger.warning("%s (no content to process)", url)
         else:
@@ -1336,9 +1441,23 @@ WEB_SEARCH_SCHEMA = {
     }
 }
 
+def _coerce_tool_bool(value: Any, default: bool = True) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"false", "0", "no", "off"}:
+            return False
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+    return default
+
+
 WEB_EXTRACT_SCHEMA = {
     "name": "web_extract",
-    "description": "Extract content from web page URLs. Returns page content in markdown format. Also works with PDF URLs (arxiv papers, documents, etc.) — pass the PDF link directly and it converts to markdown text. Pages under 5000 chars return full markdown; larger pages are LLM-summarized and capped at ~5000 chars per page. Pages over 2M chars are refused. If a URL fails or times out, use the browser tool to access it instead.",
+    "description": "Extract content from web page URLs. Returns page content in markdown format. Also works with PDF URLs (arxiv papers, documents, etc.) — pass the PDF link directly and it converts to markdown text. By default, large prose pages may be LLM-summarized and capped at ~5000 chars per page, but schedule/fixture/price/score/weather/version/time-sensitive pages preserve raw extracted text to avoid corrupting dates, times, numbers, and timezones. For precise facts, set use_llm_processing=false. Pages over 2M chars are refused. If a URL fails or times out, use the browser tool to access it instead.",
     "parameters": {
         "type": "object",
         "properties": {
@@ -1347,6 +1466,11 @@ WEB_EXTRACT_SCHEMA = {
                 "items": {"type": "string"},
                 "description": "List of URLs to extract content from (max 5 URLs per call)",
                 "maxItems": 5
+            },
+            "use_llm_processing": {
+                "type": "boolean",
+                "description": "Whether to allow LLM summarization for long pages. Use false for schedules, prices, scores, dates, timezones, or any precise numeric facts.",
+                "default": True
             }
         },
         "required": ["urls"]
@@ -1368,7 +1492,10 @@ registry.register(
     toolset="web",
     schema=WEB_EXTRACT_SCHEMA,
     handler=lambda args, **kw: web_extract_tool(
-        args.get("urls", [])[:5] if isinstance(args.get("urls"), list) else [], "markdown"),
+        args.get("urls", [])[:5] if isinstance(args.get("urls"), list) else [],
+        "markdown",
+        use_llm_processing=_coerce_tool_bool(args.get("use_llm_processing"), True),
+    ),
     check_fn=check_web_api_key,
     requires_env=_web_requires_env(),
     is_async=True,

@@ -13,6 +13,7 @@ Tests cover:
 """
 
 import asyncio
+from datetime import datetime, timezone
 import json
 import os
 import stat
@@ -29,7 +30,9 @@ from gateway.platforms.api_server import (
     APIServerAdapter,
     ResponseStore,
     _IdempotencyCache,
+    _build_api_temporal_context,
     _derive_chat_session_id,
+    _merge_temporal_context,
     _trim_chat_history_for_context,
     check_api_server_requirements,
     cors_middleware,
@@ -75,6 +78,35 @@ class TestChatHistoryContextBudget:
         assert trimmed[0]["role"] == "assistant"
         assert "前文已按上下文预算截断" in trimmed[0]["content"]
         assert len(trimmed[0]["content"]) <= 4000
+
+
+class TestAPIServerTemporalContext:
+    def test_temporal_context_defaults_to_beijing_window(self):
+        context = _build_api_temporal_context(
+            now_utc=datetime(2026, 6, 24, 7, 25, 0, tzinfo=timezone.utc),
+        )
+
+        assert "IANA时区：Asia/Shanghai" in context
+        assert "当前用户本地时间：2026-06-24 15:25:00 CST+0800" in context
+        assert "今天窗口：2026-06-24 00:00:00 CST+0800 至 2026-06-25 00:00:00 CST+0800" in context
+        assert "今晚/今夜窗口：2026-06-24 18:00:00 CST+0800 至 2026-06-25 12:00:00 CST+0800" in context
+        assert "ET/PT/CT/MT/BST/UTC/local time/venue local time" in context
+        assert "不要假设 date-filtered schedule page" in context
+
+    def test_merge_temporal_context_preserves_upstream_system_prompt_and_header_timezone(self):
+        headers = {
+            "X-Xiaoban-User-Timezone": "America/New_York",
+            "X-Xiaoban-User-Locale": "en-US",
+        }
+        merged = _merge_temporal_context(
+            "upstream system prompt",
+            headers=headers,
+            now_utc=datetime(2026, 6, 24, 7, 25, 0, tzinfo=timezone.utc),
+        )
+
+        assert "IANA时区：America/New_York" in merged
+        assert "locale=en-US" in merged
+        assert merged.index("【Xiaoban deterministic temporal context】") < merged.index("upstream system prompt")
 
 
 # ---------------------------------------------------------------------------

@@ -24,6 +24,7 @@ Pure helpers that read the agent's state.  AIAgent keeps thin forwarders.
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
 from agent.prompt_builder import (
@@ -59,6 +60,38 @@ def _ra():
     """
     import run_agent
     return run_agent
+
+
+def _format_temporal_dt(value: Any) -> str:
+    return value.strftime("%Y-%m-%d %H:%M:%S %Z%z")
+
+
+def _build_temporal_context_block(now: Any) -> str:
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow_start = today_start + timedelta(days=1)
+    if now.hour < 6:
+        tonight_start = today_start - timedelta(hours=6)
+        tonight_end = today_start + timedelta(hours=12)
+        tonight_note = "当前在本地凌晨；用户说“今晚”可能指上一晚到今天上午，也可能指今晚，需结合上下文。"
+    else:
+        tonight_start = today_start + timedelta(hours=18)
+        tonight_end = tomorrow_start + timedelta(hours=12)
+        tonight_note = "用户在白天/晚上说“今晚”，默认指今天18:00到明天12:00。"
+    tz_name = getattr(now.tzinfo, "key", None) or str(now.tzinfo or "")
+    return "\n".join(
+        [
+            "## Deterministic Temporal Context",
+            "This runtime-generated block is authoritative for current date, local time, timezone, and relative-date interpretation. Web snippets, search summaries, page titles, and conversation history must not override it.",
+            f"Current user default city/timezone: 成都/北京时间; IANA timezone: {tz_name or 'Asia/Shanghai'}",
+            f"Current user local time: {_format_temporal_dt(now)}",
+            f"Today window: {_format_temporal_dt(today_start)} to {_format_temporal_dt(tomorrow_start)} [start inclusive, end exclusive].",
+            f"Tonight window: {_format_temporal_dt(tonight_start)} to {_format_temporal_dt(tonight_end)}. {tonight_note}",
+            "When the user says today, latest, current, now, recent, next, upcoming, later, tonight, tomorrow, 今天, 最新, 当下, 现在, 最近, 后面, 接下来, 下一场, 今晚, or 明天: first anchor on the current Beijing/Asia-Shanghai time in this block, then compare searched evidence against that anchor before answering.",
+            "For schedules, fixtures, scores, prices, weather, releases, versions, meetings, reminders, and precise date/time/number answers: use raw source rows, not LLM summaries, for dates, times, numbers, and timezones.",
+            "For external ET/EDT/EST/PT/CT/MT/BST/UTC/local/venue-local times: convert using the source row date plus the source timezone, then decide whether it is today, tonight, tomorrow, or next. Chinese “凌晨3点” must carry the calendar date.",
+            "For sports schedules, prefer primary/official sources or raw rows from reputable schedules. If reposted Chinese summaries conflict with primary raw rows, say the sources conflict and use the primary raw rows.",
+        ]
+    )
 
 
 def _resolve_platform_hint(agent: Any, platform_key: str, default_hint: str) -> str:
@@ -445,6 +478,7 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
 
     from hermes_time import now as _hermes_now
     now = _hermes_now()
+    volatile_parts.append(_build_temporal_context_block(now))
     # Date-only (not minute-precision) so the system prompt is byte-stable
     # for the full day.  Minute-precision changes invalidate prefix-cache KV
     # on every rebuild path (compression boundary, fresh-agent gateway turns,
