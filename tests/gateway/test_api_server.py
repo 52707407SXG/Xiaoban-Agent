@@ -30,6 +30,7 @@ from gateway.platforms.api_server import (
     ResponseStore,
     _IdempotencyCache,
     _derive_chat_session_id,
+    _trim_chat_history_for_context,
     check_api_server_requirements,
     cors_middleware,
     security_headers_middleware,
@@ -48,6 +49,32 @@ class TestCheckRequirements:
     @patch("gateway.platforms.api_server.AIOHTTP_AVAILABLE", False)
     def test_returns_false_without_aiohttp(self):
         assert check_api_server_requirements() is False
+
+
+class TestChatHistoryContextBudget:
+    def test_trim_chat_history_keeps_recent_messages_within_budget(self, monkeypatch):
+        monkeypatch.setenv("API_SERVER_CHAT_HISTORY_MAX_MESSAGES", "3")
+        monkeypatch.setenv("API_SERVER_CHAT_HISTORY_CHAR_BUDGET", "4000")
+        history = [{"role": "user", "content": f"message {i}"} for i in range(8)]
+
+        trimmed = _trim_chat_history_for_context(history)
+
+        assert trimmed == history[-3:]
+
+    def test_trim_chat_history_truncates_single_oversized_latest_message(self, monkeypatch):
+        monkeypatch.setenv("API_SERVER_CHAT_HISTORY_MAX_MESSAGES", "10")
+        monkeypatch.setenv("API_SERVER_CHAT_HISTORY_CHAR_BUDGET", "4000")
+        latest = "x" * 5000
+
+        trimmed = _trim_chat_history_for_context([
+            {"role": "user", "content": "older"},
+            {"role": "assistant", "content": latest},
+        ])
+
+        assert len(trimmed) == 1
+        assert trimmed[0]["role"] == "assistant"
+        assert "前文已按上下文预算截断" in trimmed[0]["content"]
+        assert len(trimmed[0]["content"]) <= 4000
 
 
 # ---------------------------------------------------------------------------
@@ -1005,6 +1032,8 @@ class TestChatCompletionsEndpoint:
                 assert "data: " in body
                 assert "[DONE]" in body
                 assert "Hello!" in body
+                assert "event: hermes.status" in body
+                assert "小伴正在处理中....." in body
 
     @pytest.mark.asyncio
     async def test_stream_string_false_returns_json_completion(self, adapter):
@@ -1400,8 +1429,7 @@ class TestChatCompletionsEndpoint:
             # surface as a lifecycle payload on the wire.
             assert "call_internal_1" not in body
             assert "call_orphan_1" not in body
-            assert '"status": "running"' not in body
-            assert '"status": "completed"' not in body
+            assert "event: hermes.tool.progress" not in body
 
     @pytest.mark.asyncio
     async def test_no_user_message_returns_400(self, adapter):

@@ -90,6 +90,16 @@ DEFAULT_PORT = 8642
 MAX_STORED_RESPONSES = 100
 MAX_REQUEST_BYTES = 10_000_000  # 10 MB — accommodates long agent conversations with tool calls
 CHAT_COMPLETIONS_SSE_KEEPALIVE_SECONDS = 30.0
+CHAT_COMPLETIONS_STATUS_INTERVAL_SECONDS = 15.0
+CHAT_COMPLETIONS_STATUS_MESSAGES = (
+    "小伴正在处理中.....",
+    "小伴正在查证和整理，稍等一下。",
+    "这类问题可能会慢一点，小伴还在处理。",
+    "还在等待结果，最长约 120 秒。",
+)
+CHAT_COMPLETIONS_CONTEXT_HISTORY_DEFAULT_MAX_MESSAGES = 24
+CHAT_COMPLETIONS_CONTEXT_HISTORY_DEFAULT_CHAR_BUDGET = 24_000
+CHAT_COMPLETIONS_CONTEXT_HISTORY_MAX_CHAR_BUDGET = 1_000_000
 MAX_NORMALIZED_TEXT_LENGTH = 65_536  # 64 KB cap for normalized content parts
 MAX_CONTENT_LIST_SIZE = 1_000  # Max items when content is an array
 
@@ -356,6 +366,103 @@ def _content_has_visible_payload(content: Any) -> bool:
                 if ptype in _IMAGE_PART_TYPES:
                     return True
     return False
+
+
+def _coerce_context_budget_env(
+    name: str,
+    *,
+    default: int,
+    min_value: int,
+    max_value: int,
+) -> int:
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return min(max(value, min_value), max_value)
+
+
+def _content_context_char_count(content: Any) -> int:
+    if content is None:
+        return 0
+    if isinstance(content, str):
+        return len(content)
+    try:
+        return len(json.dumps(content, ensure_ascii=False, default=str))
+    except Exception:
+        return len(str(content))
+
+
+def _trim_content_to_context_budget(content: Any, char_budget: int) -> Any:
+    if char_budget <= 0:
+        return ""
+    if isinstance(content, str):
+        if len(content) <= char_budget:
+            return content
+        marker = "[前文已按上下文预算截断]\n"
+        tail_budget = max(0, char_budget - len(marker))
+        if tail_budget <= 0:
+            return content[-char_budget:]
+        return marker + content[-tail_budget:]
+    # Keep large multimodal history out of the prompt instead of carrying
+    # unbounded data URLs or file payloads through every later turn.
+    if _content_context_char_count(content) > char_budget:
+        return "[多模态历史内容已按上下文预算截断]"
+    return content
+
+
+def _trim_chat_history_for_context(history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Keep chat-completions history bounded while preserving the newest context.
+
+    This protects long-running desktop/IM conversations from sending unbounded
+    history on every turn. Large knowledge references should be reloaded by
+    retrieval tools or supplied as compact current-turn context, not carried
+    forever in chat history.
+    """
+    if not history:
+        return []
+
+    max_messages = _coerce_context_budget_env(
+        "API_SERVER_CHAT_HISTORY_MAX_MESSAGES",
+        default=CHAT_COMPLETIONS_CONTEXT_HISTORY_DEFAULT_MAX_MESSAGES,
+        min_value=1,
+        max_value=200,
+    )
+    char_budget = _coerce_context_budget_env(
+        "API_SERVER_CHAT_HISTORY_CHAR_BUDGET",
+        default=CHAT_COMPLETIONS_CONTEXT_HISTORY_DEFAULT_CHAR_BUDGET,
+        min_value=4_000,
+        max_value=CHAT_COMPLETIONS_CONTEXT_HISTORY_MAX_CHAR_BUDGET,
+    )
+    remaining = char_budget
+    kept: List[Dict[str, Any]] = []
+
+    for msg in reversed(history):
+        if len(kept) >= max_messages or remaining <= 0:
+            break
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        if role not in {"user", "assistant"}:
+            continue
+        content = msg.get("content", "")
+        if not _content_has_visible_payload(content):
+            continue
+        size = _content_context_char_count(content)
+        if size > remaining:
+            if not kept:
+                content = _trim_content_to_context_budget(content, remaining)
+                if _content_has_visible_payload(content):
+                    kept.append({"role": role, "content": content})
+            break
+        kept.append({"role": role, "content": content})
+        remaining -= max(size, 0)
+
+    kept.reverse()
+    return kept
 
 
 def _multimodal_validation_error(exc: ValueError, *, param: str) -> "web.Response":
@@ -1953,6 +2060,8 @@ class APIServerAdapter(BasePlatformAdapter):
             session_id = _derive_chat_session_id(system_prompt, first_user)
             # history already set from request body above
 
+        history = _trim_chat_history_for_context(history)
+
         completion_id = f"chatcmpl-{uuid.uuid4().hex[:29]}"
         model_name = body.get("model", self._model_name)
         created = int(time.time())
@@ -2192,7 +2301,10 @@ class APIServerAdapter(BasePlatformAdapter):
         await response.prepare(request)
 
         try:
+            started_at = time.monotonic()
             last_activity = time.monotonic()
+            last_status = 0.0
+            status_index = 0
 
             # Role chunk
             role_chunk = {
@@ -2202,6 +2314,25 @@ class APIServerAdapter(BasePlatformAdapter):
             }
             await response.write(f"data: {json.dumps(role_chunk)}\n\n".encode())
             last_activity = time.monotonic()
+
+            async def _emit_status() -> float:
+                nonlocal status_index
+                message = CHAT_COMPLETIONS_STATUS_MESSAGES[
+                    min(status_index, len(CHAT_COMPLETIONS_STATUS_MESSAGES) - 1)
+                ]
+                status_index += 1
+                payload = {
+                    "message": message,
+                    "elapsedSeconds": round(time.monotonic() - started_at, 1),
+                    "status": "running",
+                }
+                await response.write(
+                    f"event: hermes.status\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+                )
+                return time.monotonic()
+
+            last_status = await _emit_status()
+            last_activity = last_status
 
             # Helper — route a queue item to the correct SSE event.
             async def _emit(item):
@@ -2248,6 +2379,9 @@ class APIServerAdapter(BasePlatformAdapter):
                     if time.monotonic() - last_activity >= CHAT_COMPLETIONS_SSE_KEEPALIVE_SECONDS:
                         await response.write(b": keepalive\n\n")
                         last_activity = time.monotonic()
+                    if time.monotonic() - last_status >= CHAT_COMPLETIONS_STATUS_INTERVAL_SECONDS:
+                        last_status = await _emit_status()
+                        last_activity = last_status
                     continue
 
                 if delta is None:  # End of stream sentinel
