@@ -232,8 +232,8 @@ COMMAND_REGISTRY: list[CommandDef] = [
                cli_only=True),
     CommandDef("image", "Attach a local image file for your next prompt", "Info",
                cli_only=True, args_hint="<path>"),
-    CommandDef("update", "Update Xiaoban-Agent to the latest version", "Info"),
-    CommandDef("version", "Show Xiaoban-Agent version", "Info", aliases=("v",)),
+    CommandDef("update", "Update Xiaoban to the latest version", "Info"),
+    CommandDef("version", "Show Xiaoban version", "Info", aliases=("v",)),
     CommandDef("debug", "Upload debug report (system info + logs) and get shareable links", "Info"),
 
     # Exit

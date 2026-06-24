@@ -89,7 +89,7 @@ def main() -> None:
     if any(arg in {"--version", "-V", "version"} for arg in sys.argv[1:]):
         from hermes_cli import __release_date__, __version__
 
-        print(f"Xiaoban-Agent v{__version__} ({__release_date__})")
+        print(f"Xiaoban v{__version__} ({__release_date__})")
         return
     if _handle_lightweight_surfaces(sys.argv[1:]):
         return

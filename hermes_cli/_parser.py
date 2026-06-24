@@ -91,7 +91,7 @@ def build_top_level_parser():
     """
     parser = argparse.ArgumentParser(
         prog=os.environ.get("XIAOBAN_COMMAND_NAME", "xiaoban"),
-        description="Xiaoban-Agent - AI assistant with tool-calling capabilities",
+        description="Xiaoban - AI assistant with tool-calling capabilities",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=_EPILOGUE,
     )
@@ -252,7 +252,7 @@ def build_top_level_parser():
     chat_parser = subparsers.add_parser(
         "chat",
         help="Interactive chat with the agent",
-        description="Start an interactive chat session with Xiaoban-Agent",
+        description="Start an interactive chat session with Xiaoban",
     )
     chat_parser.add_argument(
         "-q", "--query", help="Single query (non-interactive mode)"

@@ -22,7 +22,7 @@ Usage:
     xiaoban doctor              # Check configuration and dependencies
     xiaoban version             Show version
     xiaoban update              Update to latest version
-    xiaoban uninstall           Uninstall Xiaoban-Agent
+    xiaoban uninstall           Uninstall Xiaoban
     xiaoban acp                 Run as an ACP server for editor integration
     xiaoban sessions browse     Interactive session picker with search
 """
@@ -212,7 +212,7 @@ def _print_fast_version_info() -> None:
     from hermes_cli import __release_date__, __version__
 
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-    print(f"Xiaoban-Agent v{__version__} ({__release_date__})")
+    print(f"Xiaoban v{__version__} ({__release_date__})")
     print(f"Project: {project_root}")
     print(f"Python: {sys.version.split()[0]}")
 
@@ -4349,7 +4349,7 @@ def cmd_version(args):
 
 
 def cmd_uninstall(args):
-    """Uninstall Xiaoban-Agent (or just the Chat GUI with --gui)."""
+    """Uninstall Xiaoban (or just the Chat GUI with --gui)."""
     # Machine-readable install snapshot for the desktop app's uninstall UI.
     # Must run before any TTY gate — it's called from a non-interactive child.
     if getattr(args, "gui_summary", False):
@@ -6010,7 +6010,7 @@ def _atomic_replace_dir(src: str, dst: str) -> None:
 
 
 def _update_via_zip(args):
-    """Update Xiaoban-Agent by downloading a ZIP archive.
+    """Update Xiaoban by downloading a ZIP archive.
 
     Used on Windows when git file I/O is broken (antivirus, NTFS filter
     drivers causing 'Invalid argument' errors on file creation).
@@ -8672,7 +8672,7 @@ def _discard_lockfile_churn(git_cmd, repo_root):
 
 
 def cmd_update(args):
-    """Update Xiaoban-Agent to the latest version.
+    """Update Xiaoban to the latest version.
 
     Thin wrapper around ``_cmd_update_impl``: installs hangup protection,
     runs the update, then restores stdio on the way out (even on
@@ -8722,7 +8722,7 @@ def cmd_update(args):
 
 
 def _cmd_update_pip(args):
-    """Update Xiaoban-Agent via pip (for PyPI installs)."""
+    """Update Xiaoban via pip (for PyPI installs)."""
     from hermes_cli import __version__
     from hermes_cli.config import is_uv_tool_install
 
