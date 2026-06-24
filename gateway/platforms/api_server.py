@@ -1114,6 +1114,7 @@ class APIServerAdapter(BasePlatformAdapter):
             _load_gateway_config,
             GatewayRunner,
         )
+        from hermes_cli.config import cfg_get
         from hermes_cli.tools_config import _get_platform_tools
 
         runtime_kwargs = _resolve_runtime_agent_kwargs()
@@ -1122,6 +1123,14 @@ class APIServerAdapter(BasePlatformAdapter):
 
         user_config = _load_gateway_config()
         enabled_toolsets = sorted(_get_platform_tools(user_config, "api_server"))
+        configured_system_prompt = str(
+            cfg_get(user_config, "agent", "system_prompt", default="") or ""
+        ).strip()
+        combined_system_prompt = "\n\n".join(
+            part
+            for part in (configured_system_prompt, ephemeral_system_prompt)
+            if isinstance(part, str) and part.strip()
+        )
 
         max_iterations = _current_max_iterations()
 
@@ -1135,7 +1144,7 @@ class APIServerAdapter(BasePlatformAdapter):
             max_iterations=max_iterations,
             quiet_mode=True,
             verbose_logging=False,
-            ephemeral_system_prompt=ephemeral_system_prompt or None,
+            ephemeral_system_prompt=combined_system_prompt or None,
             enabled_toolsets=enabled_toolsets,
             session_id=session_id,
             platform="api_server",
